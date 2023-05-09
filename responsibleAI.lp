@@ -1,44 +1,43 @@
 %=====================================
 %======================== Alternatives
 %=====================================
-alt(p1;p2;p3).
-
-has(p1,requiredData,clickHabit ).
-has(p1,requiredData,interests ).
-has(p1,requiredData,activity ).
-
-has(p2,requiredData,interests ).
-has(p2,requiredData,politicalBelief ).
-
-has(p3, requiredData ,opinionData).
-has(p3, requiredData ,politicalBelief).
 
 
+alt(sys1;sys2;sys3).
 
-has(p1, item_parity,6 ).
-has(p2, item_parity,8 ).
-has(p3, item_parity,8 ).
+has(sys1,requiredData,clickHabit ).
+has(sys1,requiredData,interests ).
+has(sys1,requiredData,activity ).
+
+has(sys2,requiredData,interests ).
+has(sys2,requiredData,politicalBelief ).
+
+has(sys3, requiredData ,interests).
+has(sys3, requiredData ,activity).
 
 
-has(p1, gender_parity,6 ).
-has(p2, gender_parity,8 ).
-has(p3, gender_parity,8 ).
 
-has(p1, racial_parity,6 ).
-has(p2, racial_parity,8 ).
-has(p3, racial_parity,8 ).
+has(sys1, item_parity,3 ).
+has(sys2, item_parity,6 ).
+has(sys3, item_parity,4 ).
 
-has(p1, accuracy,6 ).
-has(p2, accuracy,8 ).
-has(p3, accuracy,8 ).
 
-has(p1, processType, bigData ).
-has(p2, processType, multiSource ).
-has(p3, processType, regular ).
+has(sys1, gender_parity,1 ).
+has(sys2, gender_parity,2 ).
+has(sys3, gender_parity,3 ).
 
-has(p1, processTime,2).
-has(p2, processTime,2).
-has(p3, processTime,4).
+has(sys1, racial_parity,2 ).
+has(sys2, racial_parity,4 ).
+has(sys3, racial_parity,1 ).
+
+has(sys1, perfMetric,30 ).
+has(sys2, perfMetric,25 ).
+has(sys3, perfMetric,20 ).
+
+has(sys1, processType, largeScale ).
+has(sys2, processType, largeScale ).
+has(sys3, processType, smallScale ).
+
 
 
 has(politicalBelief, category, sensitiveData).
@@ -53,7 +52,7 @@ has(opinionData, category, sensitiveData).
 
 super_value(root).
 moral_value(privacy; fairness; performance ).
-sub_value(authorisation ; minimiseData; minimiseSensitiveData; streamingDataSource; item; user ; racial_equality; gender_equality; accuracy; time).
+sub_value(scaleComplexity ; minimization; sensitivity; item_fairness; user_fairness ; racial_fairness; gender_fairness).
 
 node(N):- super_value(N) .
 node(N):- moral_value(N).
@@ -67,10 +66,10 @@ nonLeafNode(N):- node(N), child(N,_).
     child(privacy, sensitivity).
     child(privacy, minimization).
     child(privacy, scaleComplexity).
-    child(fairness, item).
-    child(fairness, user).
-    child(user, racial_equality).
-    child(user, gender_equality).
+    child(fairness, item_fairness).
+    child(fairness, user_fairness).
+    child(user, racial_fairness).
+    child(user, gender_fairness).
 
 
 
@@ -79,17 +78,19 @@ leanNode(N):- node(N), not child(N,_).
 nonLeafNode(N):- node(N), not leanNode(N).
 
 
+‰============================
+%leaf criteria votes
+
 has(A,nbData, N):- N = #count{ D : has(A, requiredData, D)}, alt(A).
-pref(minimiseData,A,B):-  has(A,nbData, N1), has(B,nbData, N2), N2>=N1.
+pref(minimization,A,B):-  has(A,nbData, N1), has(B,nbData, N2), N2>=N1.
 
 has(A,nbSensitiveData, N):- N = #count{ D : has(A, requiredData, D), has(D, category, sensitiveData)}, alt(A).
-pref(minimiseSensitiveData,A,B):-  has(A,nbSensitiveData, N1), has(B,nbSensitiveData, N2), N2>=N1.
+pref(sensitivity,A,B):-  has(A,nbSensitiveData, N1), has(B,nbSensitiveData, N2), N2>=N1.
 
 
 
-rankAux(bigData, 3).
-rankAux(multiSource, 2).
-rankAux(regular, 1).
+rankAux(largeScale, 2).
+rankAux(smallScale, 1).
 pref(scaleComplexity,A,B):- 
     has(A, processType, T1),
      has(B, processType, T2),
@@ -99,27 +100,28 @@ pref(scaleComplexity,A,B):-
 
 
 
-pref(performance,A,B):- has(A, accuracy,P1 ), has(B, accuracy,P2 ), P1>=P2, alt(A), alt(B).
+pref(performance,A,B):- has(A, perfMetric,P1 ), has(B, perfMetric,P2 ), P1>=P2, alt(A), alt(B).
 
 
 
 
-pref(item,A,B):- has(A, item_parity,P1), has(B, item_parity,P2), P1<=P2, alt(A), alt(B).
+pref(item_fairness,A,B):- has(A, item_parity,P1), has(B, item_parity,P2), P1<=P2, alt(A), alt(B).
 
-pref(racial_equality,A,B):- has(A, racial_parity,P1), has(B, racial_parity,P2), P1<=P2, alt(A), alt(B).
-pref(gender_equality,A,B):- has(A, gender_parity,P1), has(B, gender_parity,P2), P1<=P2, alt(A), alt(B).
-
-
+pref(racial_fairness,A,B):- has(A, racial_parity,P1), has(B, racial_parity,P2), P1<=P2, alt(A), alt(B).
+pref(gender_fairness,A,B):- has(A, gender_parity,P1), has(B, gender_parity,P2), P1<=P2, alt(A), alt(B).
 
 
 
-childPref(privacy, minimiseSensitiveData, minimiseData).
-childPref(privacy, minimiseData, scaleComplexity).
+%============================
+% priorities
 
-childPref(fairness, user, item).
-childPref(user, racial_parity, gender_parity).
+childPref(privacy, sensitivity, minimization).
+childPref(privacy, minimization, scaleComplexity).
 
-%childPref(performance, accuracy, time).
+childPref(fairness, user_fairness, item_fairness).
+childPref(user_fairness, racial_fairness, gender_fairness).
+
+
 
 %childPref(root, performance,privacy).
 childPref(root, fairness, privacy).
@@ -127,33 +129,24 @@ childPref(root, privacy, performance).
 %childPref(root, privacy, fairness).
 %childPref(root, fairness, performance).
 
-%childPref(root, performance, privacy).
 
 
 
 
 childPref(C, X,Z):- childPref(C, X,Y), childPref(C, Y,Z).
 
-pref(C,A,B):- prefLay(C,A,B).
-
-pref(A,B):- pref(root,A,B).
 
 
-rank(A,R):- R = #count{ B : pref(A,B)},alt(A).
-%rank(A,R):- R1 = #count{ B : pref(A,B)} , R2=#count{ X : pref(X,_)}, R=R2-R1+1, alt(A).
+
 
 
 
 
 
 criteslength(M, N):- N = #count{ C : child(M,C)}, child(M,_).
-
 rank(A,M,N):- R = #count{ B : childPref(M,A,B)}, child(M, A), N=K-R, criteslength(M, K).
-
 equivClass(M, N):-  rank(_,M,N).
-
 in(C,M,E):- child(M,C), rank(C,M,E).
-
 notInfer(M, E1, E2):-in(C1,M,E1), in(C2,M,E2), not childPref(M,C1,C2), equivClass(M, E1), equivClass(M, E2).
 prefSet(M, E1,E2):-   not notInfer(M, E1,E2), equivClass(M, E1), equivClass(M, E2).
 
@@ -171,6 +164,17 @@ pVote(M, E, X,Y):- singleton(M, E), in(C,M,E), child(M,C), pref(C,X,Y).
 
 s(M, E,X, N1):- N1 = #count{ C : pref(C,X,Y), in(C,M,E) }, equivClass(M,E), alt(X).
 pVote(M, E, X,Y):- plural(M, E), s(M, E,X, N1), s(M, E,Y, N2), N1 >=N2 .
+
+
+
+pref(C,A,B):- prefLay(C,A,B).
+
+pref(A,B):- pref(root,A,B).
+
+
+rank(A,R):- R = #count{ B : pref(A,B)},alt(A).
+%rank(A,R):- R1 = #count{ B : pref(A,B)} , R2=#count{ X : pref(X,_)}, R=R2-R1+1, alt(A).
+
 
 
 %#show nonLeafNode/1.
