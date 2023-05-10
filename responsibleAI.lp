@@ -1,8 +1,6 @@
-%=====================================
-%======================== Alternatives
-%=====================================
-
-
+%========================================================
+%======================== Alternatives ==================
+%========================================================
 alt(sys1;sys2;sys3).
 
 has(sys1,requiredData,clickHabit ).
@@ -15,12 +13,9 @@ has(sys2,requiredData,politicalBelief ).
 has(sys3, requiredData ,interests).
 has(sys3, requiredData ,activity).
 
-
-
 has(sys1, item_parity,3 ).
 has(sys2, item_parity,6 ).
 has(sys3, item_parity,4 ).
-
 
 has(sys1, gender_parity,1 ).
 has(sys2, gender_parity,2 ).
@@ -43,11 +38,10 @@ has(sys3, processType, smallScale ).
 has(politicalBelief, category, sensitiveData).
 has(opinionData, category, sensitiveData).
 
-
-
 %===================================================================
 %======================== Hierarchical Structure ===================
 %===================================================================
+
 child(root,privacy).
 child(root,fairness).
 child(root,performance).
@@ -132,93 +126,162 @@ childPref(fairness, user_fairness, item_fairness).
 childPref(user_fairness, racial_fairness, gender_fairness).
 childPref(user_fairness, gender_fairness,  racial_fairness).
 
-% variant inputs
-
-%childPref(root, performance,privacy).
-childPref(root, fairness, privacy).
-childPref(root, privacy, performance).
-childPref(root, privacy, fairness).
-%childPref(root, fairness, performance).
-%childPref(root, performance, fairness).
-
-
 
 % transitivity of the order
 childPref(C, X,Z):- childPref(C, X,Y), childPref(C, Y,Z).
+
+
+% variant inputs for the root to reproduce the result in the article
+
+% case 1) fairness = privacy = pereformance
+
+childPref(root, fairness, privacy).
+childPref(root, privacy, fairness).
+childPref(root, privacy, performance).
+childPref(root, performance,privacy).
+
+
+% case 2 fairness > privacy > pereformance
+
+%childPref(root, fairness, privacy).
+%childPref(root, privacy, performance).
+
+
+% case 3 fairness = privacy > pereformance
+
+%childPref(root, fairness, privacy).
+%childPref(root, privacy, fairness).
+%childPref(root, privacy, performance).
+
+
+% case 4 fairness = pereformance > privacy 
+
+%childPref(root, fairness, performance).
+%childPref(root, performance, fairness).
+%childPref(root, performance,privacy).
+
+
+% case 5 fairness > pereformance > privacy 
+
+%childPref(root, fairness, performance).
+%childPref(root, performance,privacy).
+
 
 
 %==================================================================
 %=========================== Aggregator ===========================
 %==================================================================
 
-criteslength(M, N):- N = #count{ C : child(M,C)}, child(M,_).
-rank1(A,M,N):- R = #count{ B : childPref(M,A,B)}, child(M, A), N=K-R, criteslength(M, K).
-equivClass(M, N):-  rank1(_,M,N).
-in(C,M,E):- child(M,C), rank1(C,M,E).
-notInfer(M, E1, E2):-in(C1,M,E1), in(C2,M,E2), not childPref(M,C1,C2), equivClass(M, E1), equivClass(M, E2).
-prefSet(M, E1,E2):-   not notInfer(M, E1,E2), equivClass(M, E1), equivClass(M, E2).
-
-
-
-
-childrenLayers(Node,Layer):- child(Node, Child), in(Child, Node, Layer).
-
-is_dominated(Node, Layer, Alt1,Alt2):- 
-    childrenLayers(Node,Layer),
-    pVote(Node, Layer, Alt1, Alt2),
-    prefSet(Node, Layer1, Layer), 
-    not pVote(Node, Layer1, Alt1,Alt2).
-
-is_dominant(Node, Layer,Alt1,Alt2):- 
-    not is_dominated(Node, Layer,Alt1,Alt2), 
-    childrenLayers(Node,Layer),
-    pVote(Node, Layer, Alt1, Alt2).
+% Implementation of votng rule with dominant voters
+pref(Node, Alt1, Alt2):- prefLay(Node, Alt1, Alt2).
 
 prefLay(Node, Alt1, Alt2):- 
     childrenLayers(Node,Layer),
     pVote(Node, Layer, Alt1, Alt2),
     is_dominant(Node, Layer, Alt1, Alt2).
 
+is_dominant(Node, Layer,Alt1,Alt2):- 
+    not is_dominated(Node, Layer,Alt1,Alt2), 
+    childrenLayers(Node,Layer),
+    pVote(Node, Layer, Alt1, Alt2).
+
+is_dominated(Node, Layer, Alt1,Alt2):- 
+    childrenLayers(Node,Layer),
+    pVote(Node, Layer, Alt1, Alt2),
+    superiorThan(Node, Layer1, Layer), 
+    not pVote(Node, Layer1, Alt1,Alt2).
+
+superiorThan(Node, Layer1, Layer2):- 
+    childrenLayers(Node, Layer1), 
+    childrenLayers(Node, Layer2),
+    not inferiorThan(Node, Layer1, Layer2).
+
+inferiorThan(Node, Layer1, Layer2):-
+    childrenLayers(Node, Layer1), 
+    childrenLayers(Node, Layer2),
+    belongs(Node, Child1 , Layer1),
+    belongs(Node, Child2 , Layer2),
+    not childPref(Node, Child1, Child2).
+
+childrenLayers(Node, Layer):-  belongs(Node, _ , Layer).
+
+belongs(Node, Child , Layer):- 
+    Layer = #count{ Child1 : childPref(Node , Child, Child1)}, 
+    child(Node, Child).
 
 
-plural(M, E):- in(C1,M,E), in(C2, M,E),child(M,C1), child(M, C2) ,C1 != C2.
-singleton(M,E):- in(C,M,E), child(M,C) ,not plural(M, E).
+% voting rule
 
-pVote(M, E, X,Y):- singleton(M, E), in(C,M,E), child(M,C), pref(C,X,Y).
+% in case of an only single voter no vote aggregation is needed 
+pVote(Node, Layer, Alt1,Alt2):- 
+    singleton(Node, Layer), 
+    belongs(Node, Child, Layer), 
+    pref(Child, Alt1, Alt2).
 
+singleton(Node, Layer):- 
+    belongs(Node, Child1, Layer), 
+    not plural(Node, Layer).
 
-%%%================= Copelands rule 
-ss(M,E, X,Y , N1):- N1 = #count{ C : pref(C,X,Y), not pref(C,Y,X),  in(C,M,E) }, equivClass(M,E), alt(X), alt(Y).
-
-superCount( M,E, X,Y, N):- N= #count{ N1 : ss(M,E, X,Y , N1), ss(M,E, Y,X , N2) ,in(C,M,E), N1>N2 }, equivClass(M,E), alt(X), alt(Y).
-tie( M,E, X,Y ,N):- N= #count{ N1 : ss(M,E, X,Y , N1), ss(M,E, Y,X , N2) ,in(C,M,E), N1=N2 }, equivClass(M,E), alt(X), alt(Y) .
-%infCount( M,E, X,Y, N):- N= #count{ N1 : ss(M,E, X,Y , N1), ss(M,E, Y,X , N2) ,in(C,M,E), N1<N2 }, equivClass(M,E), alt(X), alt(Y).
-
-sumRab( M,E, X,Y, S):- superCount( M,E, X,Y, N1), tie( M,E, X,Y, N2), S = N1*2+N2, equivClass(M,E), alt(X), alt(Y) .
-
-sumRab( M,E, X,S):- S= #sum{ S1: sumRab( M,E, X,Y, S1), alt(Y)}, equivClass(M,E), alt(X) .
-
-pVote(M, E, X,Y):- plural(M, E), sumRab( M,E, X,S1), sumRab( M,E, Y,S2), S1>S2.
+plural(Node, Layer):- 
+    belongs(Node, Child1, Layer), 
+    belongs(Node, Child2, Layer),
+    Child1 != Child2.
 
 
+% vote aggregation according to Copelands rule
+pVote(Node, Layer, Alt1, Alt2):- 
+    plural(Node, Layer), 
+    copeland_score( Node, Layer, Alt1, S1), 
+    copeland_score( Node, Layer, Alt2, S2), 
+    S1>S2.
+
+copeland_score( Node, Layer, Alt, S):- 
+    S= #sum{ S1: 
+        nb_pairwise_wins( Node, Layer, Alt, Alt1, N1), 
+        nb_pairwise_ties( Node, Layer, Alt, Alt1, N2), 
+        S1 = N1*2+N2,
+        alt(Alt1)}, 
+    childrenLayers(Node, Layer), alt(Alt) .
+
+nb_pairwise_ties( Node, Layer, Alt1, Alt2 , N):- 
+    N= #count{ N1 : 
+        nb_strict_voters(Node, Layer, Alt1, Alt2 , N1), 
+        nb_strict_voters(Node, Layer, Alt2, Alt1 , N2),
+        belongs(Node, Child, Layer), N1=N2}, 
+    childrenLayers(Node,Layer), alt(Alt1), alt(Alt2).
+
+nb_pairwise_wins( Node, Layer, Alt1, Alt2, N):- 
+    N= #count{ N1 : 
+        nb_strict_voters(Node, Layer, Alt1, Alt2 , N1), 
+        nb_strict_voters(Node, Layer, Alt2, Alt1 , N2), 
+        belongs(Node, Child, Layer), N1>N2}, 
+    childrenLayers(Node, Layer), alt(Alt1), alt(Alt2).
+
+nb_strict_voters(Node, Layer, Alt1, Alt2, N):- 
+    N = #count{ Child : 
+        pref(Child, Alt1, Alt2), 
+        not pref(Child , Alt2, Alt1), 
+        belongs(Node, Child, Layer) }, 
+    childrenLayers(Node, Layer), alt(Alt1), alt(Alt2).
 
 
-pref(C,A,B):- prefLay(C,A,B).
 
-%% ranking correction
-rankA(C,A,R):- R1 = #count{ B : pref(C, A,B)} , R2=#count{ X : pref(C,X,_)}, R=R2-R1+1, node(C) ,alt(A).
-rankR(C, R2,R+1):- R = #count{ R1 : rankA(C,_,R1), R2>R1 }, rankA(C,_,R2).
-rank(C,A,N):- rankA(C,A,R), rankR(C, R,N).
+%% ranking adjustment
+primiryRank(Node, Alt, R):- 
+    R1 = #count{ Alt1 : pref(Node, Alt, Alt1), alt(Alt1)} , 
+    R2 = #count{ Alt2 : pref(Node, Alt2,_)}, 
+    R = R2-R1+1, node(Node), alt(Alt).
 
+correction(Node, R2 , R+1):- 
+    R = #count{ R1 : primiryRank(Node,_,R1), R2>R1 }, 
+    primiryRank(Node,_,R2).
 
-%eqlass(E):-equivClass(fairness,E).
-%prefRoot(A,B):- pref(root, A,B).
+rank(Node, Alt , R):- 
+    primiryRank(Node, Alt, R1), 
+    correction(Node, R1 , R).
+
+%root ranking 
 rankRoot(A,N):- rank(root,A,N).
-%#show eqlass/1.
-%#show card_S/4.
+
 #show rankRoot/2.
-%#show pVote/4.
 %#show rank/3.
-
-%#show prefLay/3.
-
